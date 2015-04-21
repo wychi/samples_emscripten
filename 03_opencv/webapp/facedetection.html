@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<style>
+#localImage {
+    width: 500px;
+}
+</style>
+
+</head>
+<body>
+    
+<image id="localImage"></image>
+<canvas id="snapshot"></canvas>
+<canvas id="result"></canvas>
+
+<script>
+
+// This global variable, Module, is needed.
+// Since complied javascript might be minified.
+Module = {};
+Module['onRuntimeInitialized'] = onRuntimeInitialized;
+
+function onRuntimeInitialized() {
+  var kaku_make_noice = Module.cwrap('kaku_face_detection_demo', 'number', ['number','number', 'number', 'number', 'number', 'number']);
+  //var kaku_feature_tracking_demo = Module.cwrap('kaku_feature_tracking_demo', 'number', ['number', 'number', 'number']);
+
+  if(!kaku_make_noice) {
+    alert('fail to load facedetection library');
+  }
+
+  var canvas = document.getElementById('snapshot');
+  var ctx = canvas.getContext('2d');
+  var canvas2 = document.getElementById('result');
+  var ctx2 = canvas2.getContext('2d');
+
+  var image;
+  image = document.getElementById('localImage');
+  image.addEventListener('load', function() {
+    console.log(image.width, image.height);
+    console.log(image.naturalWidth, image.naturalHeight);
+
+    canvas.width = image.width;
+    canvas.height = image.height;
+    canvas2.width = image.width;
+    canvas2.height = image.height;
+
+    detect();
+  });
+  image.src = "face.jpg";
+
+  function detect() {
+    //var width = image.naturalWidth;
+    //var height = image.naturalHeight;
+    var width = image.width;
+    var height = image.height;
+
+    ctx.drawImage(image, 0, 0, width, height);
+
+    var img = ctx.getImageData(0, 0, width, height);
+    var bufferSize = width*height*4;
+    var inputBuf = Module._malloc(bufferSize);
+    var temp1 = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf, bufferSize);
+    temp1.set(img.data, 0);
+
+    var minFaceWidth = Math.min(width, height)/4;
+    var minFaceHeight = Math.min(width, height)/4;
+    var scaleFactor = 1.1;
+    kaku_make_noice(inputBuf, width, height, scaleFactor, minFaceWidth, minFaceHeight);
+
+    var resultImageData = new ImageData(temp1, width, height);
+    ctx2.putImageData(resultImageData, 0, 0);
+  }
+}
+</script>
+<script src="./out.js"></script>
+
+</body>
+</html>
