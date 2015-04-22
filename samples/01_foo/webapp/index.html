@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+</head>
+
+<body>
+
+<h3>
+Open developement console to see the log.
+</h3>
+    
+<script>
+
+// This global variable, Module, is needed.
+// Since complied javascript might be minified.
+Module = {};
+Module['onRuntimeInitialized'] = onRuntimeInitialized;
+
+function onRuntimeInitialized() {
+  console.log('sample start...');
+
+  if(!Module) {
+    alert('fail to load library');
+    return;
+  }
+  
+  var result, c_foo, c_add, c_str_in, c_str_out;
+
+  c_foo = Module.cwrap(
+    'c_foo', // function name
+    null, // type of return value
+    null // type of arguments
+    );
+  c_foo();
+
+  c_add = Module.cwrap('c_add', 'number', ['number', 'number']);
+  result = c_add(10, 20);
+  console.log('c_add(10,20) = ' + result);
+
+  c_str_in = Module.cwrap('c_str_in', null, ['string']);
+  c_str_in('THIS_IS_JS_STRING');
+
+  c_str_out = Module.cwrap('c_str_out', 'string');
+  result = c_str_out();
+  console.log('c_str_out = ' + result);
+
+  // use Module.ccall
+  Module.ccall(
+    'c_foo', // function name
+    null, // type of return value
+    null // type of arguments
+    );
+
+  result = Module.ccall(
+    'c_add', // function name
+    'number', // type of return value
+    ['number', 'number'], // type of arguments
+    [10, 20]
+    );
+  console.log('ccall c_add(10,20) = ' + result);
+};
+
+</script>
+<script async src="./out.js"></script>
+
+</body>
+</html>

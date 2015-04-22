@@ -1,0 +1,164 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+#snapshot {
+  display: none;
+}
+</style>
+
+<script type="text/javascript" src="../../res/adapter.js"></script>
+</head>
+
+<body>
+<button onclick="start()">Start</button>
+<button onclick="stop()">stop</button>
+<canvas id="snapshot"></canvas>
+<canvas id="result"></canvas>
+
+<script>
+// This global variable, Module, is needed.
+// Since complied javascript might be minified.
+Module = {};
+Module['onRuntimeInitialized'] = onRuntimeInitialized;
+
+//show Emscripten environment where the canvas is
+var canvas2 = document.getElementById('result');
+Module.canvas = canvas2;
+canvas2.addEventListener("webglcontextlost", function(e) {
+  alert('WebGL context lost. You will need to reload the page.');
+  e.preventDefault();
+}, false);
+
+function onRuntimeInitialized() {
+  console.log('onRuntimeInitialized');
+  // TODO: enable the buttons
+}
+
+var TEST_IMAGE = '../../res/face.jpg';
+var TEST_VIDOE = '../../res/Mozilla_2011_Story.webm';
+
+var c_initGL, c_DrawImage;
+var playing = false;
+var _image;
+
+function stop() {
+  playing = false;
+}
+
+function start() {
+  // TODO use radio button to choose
+  playing = true;
+  function useImage() {
+    var image = new Image();
+    image.addEventListener('load', function() {
+      console.log('image loaded');
+      console.log('width, height', image.width, image.height);
+      console.log('real width, height', image.naturalWidth, image.naturalHeight);
+
+      init(image.width, image.height);
+    });
+    image.src = TEST_IMAGE;
+    _image = image;    
+  }
+
+  function useVideo() {
+    var video = document.createElement('video');
+    video.autoplay = 1;
+    video.addEventListener("playing", function() {
+      console.log('video playing');
+      console.log(video.videoWidth, video.videoHeight);
+      var width = video.videoWidth;
+      var height = video.videoHeight;
+
+      init(width, height);
+    }, true);
+
+    _image = video;
+
+    return video;
+  }
+
+  try {
+    if(navigator.getUserMedia)
+      navigator.getUserMedia({video:true}, onGotStream, onFailedStream);
+    else {
+      console.log('useVideo');
+      var video = useVideo();
+      video.src = TEST_VIDOE;
+    }
+  } catch (e) {
+    console.log("getUserMedia error " + e);
+    //trace_e(e, "getUserMedia error");
+  }
+
+  function onGotStream(stream) {
+    var video = useVideo();
+    attachMediaStream(video,stream);
+  }
+
+  function onFailedStream(error) {
+    console.log("Failed to get access to local media. Error code was " + error.code + ".");
+    //useImage();
+    var video = useVideo();
+    video.src = TEST_VIDOE;
+  }
+}
+
+function init(width, height) {
+  console.log('init ', width, height);
+  c_initGL = Module.cwrap('initGL', 'number', ['number','number']);
+  c_DrawImage = Module.cwrap('DrawImage', 'number', ['number','number', 'number']);
+
+  c_initGL(width, height);
+
+  Module['canvas'].width = width;
+  Module['canvas'].height = height;
+
+  render();
+}
+
+function getImage() {
+  return _image;
+}
+
+function render() {
+  var image = getImage();
+  var width = image.width;
+  var height = image.width;
+  if( image.nodeName === 'VIDEO' && playing) {
+    requestAnimationFrame( render );
+
+    width = image.videoWidth;
+    height = image.videoHeight;
+  }
+
+  process(image, width, height);
+}
+
+function process(image, width, height) {
+  //console.log('process', width, height);
+  //var canvas = document.createElement('canvas');
+  var canvas = document.getElementById('snapshot');
+  canvas.width = width;
+  canvas.height = height;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0, width, height);
+
+  var img = ctx.getImageData(0, 0, width, height);
+  var bufferSize = width*height*4;
+  var inputBuf = Module._malloc(bufferSize);
+  var temp1 = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf, bufferSize);
+  temp1.set(img.data, 0);
+
+  c_DrawImage(inputBuf, width, height);
+
+  // TODO free buffer
+  Module._free(inputBuf);
+}
+</script>
+<script async src="./out.js"></script>
+
+</body>
+</html>
