@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="//webrtc.github.io/samples/src/js/adapter.js"></script>
+<script type="text/javascript" src="//webglfundamentals.org/webgl/resources/webgl-utils.js"></script>
+
+
+<style type="text/css">
+canvas {
+  display: block;
+  width: 256px;
+  height: 256px;
+  border: 1px red solid;
+}
+#localVideo {
+  display: block;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 256px;
+  height: 256px;
+  -webkit-transition-property: opacity;
+  -webkit-transition-duration: 2s;
+  opacity: 0;
+}
+</style>
+
+</head>
+
+<body>
+<video id="localVideo" width="256" height="256" autoplay></video>
+<canvas id="localCanvas" width="256" height="256"></canvas>
+<canvas id="localCanvas2" width="256" height="256"></canvas>
+
+<script>
+
+var localVideo;
+var localCanvas;
+
+localVideo = document.getElementById("localVideo");
+localCanvas = document.getElementById("localCanvas");
+
+var onGotStream = function(stream) {
+  console.log('onGotStream');
+  localVideo.style.opacity = 1;
+  attachMediaStream(localVideo, stream);
+  localStream = stream;
+  //trace("User has granted access to local media. url = " + url);
+  setTimeout(poll, 2000);
+}
+
+var onFailedStream = function(error) {
+  alert("Failed to get access to local media. Error code was " + error.code + ".");
+  //trace_warning("Failed to get access to local media. Error code was " + error.code);
+  localVideo.src = 'chrome_japan.mp4';
+  setTimeout(poll, 2000);
+}
+
+var GL;
+render = function(canvas, image) {
+  console.log('render - canvas', canvas.width, canvas.height);
+  console.log('render - image', image.width, image.height);
+
+  var gl = GL;
+  if(!gl) {
+    var gl = getWebGLContext(canvas);
+    if (!gl) {
+      console.log('exit no gl');
+      return;
+    }
+    GL = gl;
+
+  }
+
+  // setup GLSL program
+  var program = createProgramFromScripts(gl, ["2d-vertex-shader", "2d-fragment-shader"]);
+  gl.useProgram(program);
+
+  // look up where the vertex data needs to go.
+  var positionLocation = gl.getAttribLocation(program, "a_position");
+  var texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+
+  // provide texture coordinates for the rectangle.
+  var texCoordBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      0.0,  0.0,
+      1.0,  0.0,
+      0.0,  1.0,
+      0.0,  1.0,
+      1.0,  0.0,
+      1.0,  1.0]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(texCoordLocation);
+  gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+  var texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+
+  // Set the parameters so we can render any size image.
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  // Upload the image into the texture.
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+  // lookup uniforms
+  var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+
+  // set the resolution
+  gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+
+  // Create a buffer for the position of the rectangle corners.
+  var positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.enableVertexAttribArray(positionLocation);
+  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+  // Set a rectangle the same size as the image.
+  setRectangle(gl, 0, 0, canvas.width, canvas.height);
+
+  // Draw the rectangle.
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+};
+
+function randomInt(range) {
+  return Math.floor(Math.random() * range);
+}
+
+function setRectangle(gl, x, y, width, height) {
+  var x1 = x;
+  var x2 = x + width;
+  var y1 = y;
+  var y2 = y + height;
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+     x1, y1,
+     x2, y1,
+     x1, y2,
+     x1, y2,
+     x2, y1,
+     x2, y2]), gl.STATIC_DRAW);
+}
+
+//var firstTime = true;
+poll = function() {
+  setTimeout(poll, 0);
+
+  var w = localVideo.videoWidth;
+  var h = localVideo.videoHeight;
+  var canvas = localCanvas;// document.createElement('canvas');
+  canvas.width  = w;
+  canvas.height = h;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(localVideo, 0, 0, w, h);
+  
+  //if(firstTime) {
+    var canvas2 = document.getElementById("localCanvas2");
+    // canvas2.width  = w;
+    // canvas2.height = h;
+    render(canvas2, localVideo);
+    firstTime = false;    
+  //}
+
+  //testImage();
+}
+
+var testImage = function() {
+  var image = new Image();
+  image.src = "../res/firefox.png";  // MUST BE SAME DOMAIN!!!
+  image.onload = function() {
+    console.log('onload');
+    var canvas = document.getElementById("localCanvas2");
+    render(canvas, image);
+  }
+}
+
+testImage();
+// try {
+//   navigator.getUserMedia({video:true}, onGotStream, onFailedStream);
+//     //trace("Requested access to local media");
+// } catch (e) {
+//   alert("getUserMedia error " + e);
+//   //trace_e(e, "getUserMedia error");
+// }
+
+</script>
+
+<!-- vertex shader -->
+<script id="2d-vertex-shader" type="x-shader/x-vertex">
+attribute vec2 a_position;
+attribute vec2 a_texCoord;
+
+uniform vec2 u_resolution;
+
+varying vec2 v_texCoord;
+
+void main() {
+   // convert the rectangle from pixels to 0.0 to 1.0
+   vec2 zeroToOne = a_position / u_resolution;
+
+   // convert from 0->1 to 0->2
+   vec2 zeroToTwo = zeroToOne * 2.0;
+
+   // convert from 0->2 to -1->+1 (clipspace)
+   vec2 clipSpace = zeroToTwo - 1.0;
+
+   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+
+   // pass the texCoord to the fragment shader
+   // The GPU will interpolate this value between points.
+   v_texCoord = a_texCoord;
+}
+</script>
+<!-- fragment shader -->
+<script id="2d-fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+
+// our texture
+uniform sampler2D u_image;
+
+// the texCoords passed in from the vertex shader.
+varying vec2 v_texCoord;
+
+void main() {
+   gl_FragColor = texture2D(u_image, v_texCoord).bgra;
+}
+</script>
+</body>
+</html>
