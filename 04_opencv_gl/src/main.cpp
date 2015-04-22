@@ -31,60 +31,12 @@ typedef struct
 ESContext sESContext;
 
 ///
-// Create a shader object, load the shader source, and
-// compile the shader.
-//
-GLuint LoadShader ( GLenum type, const char *shaderSrc )
-{
-   GLuint shader;
-   GLint compiled;
-   
-   // Create the shader object
-   shader = glCreateShader ( type );
-
-   if ( shader == 0 )
-    return 0;
-
-   // Load the shader source
-   glShaderSource ( shader, 1, &shaderSrc, NULL );
-   
-   // Compile the shader
-   glCompileShader ( shader );
-
-   // Check the compile status
-   glGetShaderiv ( shader, GL_COMPILE_STATUS, &compiled );
-
-   if ( !compiled ) 
-   {
-      GLint infoLen = 0;
-
-      glGetShaderiv ( shader, GL_INFO_LOG_LENGTH, &infoLen );
-      
-      if ( infoLen > 1 )
-      {
-         char* infoLog = (char*) malloc (sizeof(char) * infoLen );
-
-         glGetShaderInfoLog ( shader, infoLen, NULL, infoLog );
-         esLogMessage ( "Error compiling shader:\n%s\n", infoLog );            
-         
-         free ( infoLog );
-      }
-
-      glDeleteShader ( shader );
-      return 0;
-   }
-
-   return shader;
-
-}
-
-///
 // Initialize the shader and program object
 //
 int Init ( ESContext *esContext )
 {
-   esContext->userData = malloc(sizeof(UserData));
-   UserData *userData = (UserData*) esContext->userData;
+    esContext->userData = malloc(sizeof(UserData));
+    UserData *userData = (UserData*) esContext->userData;
 
     GLbyte vShaderStr[] =  
       "attribute vec4 a_position;   \n"
@@ -105,29 +57,27 @@ int Init ( ESContext *esContext )
       "  gl_FragColor = texture2D( s_texture, v_texCoord );\n"
       "}                                                   \n";
 
-// Load the shaders and get a linked program object
-   userData->programObject = esLoadProgram ( (const char *)vShaderStr, (const char *)fShaderStr );
-      // Get the attribute locations
-   userData->positionLoc = glGetAttribLocation ( userData->programObject, "a_position" );
-   userData->texCoordLoc = glGetAttribLocation ( userData->programObject, "a_texCoord" );
+
+    // Load the shaders and get a linked program object
+    userData->programObject = esLoadProgram ( (const char *)vShaderStr, (const char *)fShaderStr );
+    // Get the attribute locations
+    userData->positionLoc = glGetAttribLocation ( userData->programObject, "a_position" );
+    userData->texCoordLoc = glGetAttribLocation ( userData->programObject, "a_texCoord" );
    
-      // Get the sampler location
-   userData->samplerLoc = glGetUniformLocation ( userData->programObject, "s_texture" );
+    // Get the sampler location
+    userData->samplerLoc = glGetUniformLocation ( userData->programObject, "s_texture" );
 
-   // // Load the texture
-   // userData->textureId = CreateSimpleTexture2D (img.data, width, height);
-
-      // Setup the vertex data
-   GLfloat vVertices[] = { -0.5,  0.5, 0.0,  // Position 0
-                            0.0,  0.0,       // TexCoord 0
-                           -0.5, -0.5, 0.0,  // Position 1
-                            0.0,  1.0,       // TexCoord 1
-                            0.5, -0.5, 0.0,  // Position 2
-                            1.0,  1.0,       // TexCoord 2
-                            0.5,  0.5, 0.0,  // Position 3
-                            1.0,  0.0        // TexCoord 3
-                         };
-   GLushort indices[] = { 0, 1, 2, 0, 2, 3 };
+    // Setup the vertex data
+    GLfloat vVertices[] = { -1.0,  1.0, 0.0,  // Position 0
+                             0.0,  0.0,       // TexCoord 0
+                            -1.0, -1.0, 0.0,  // Position 1
+                             0.0,  1.0,       // TexCoord 1
+                             1.0, -1.0, 0.0,  // Position 2
+                             1.0,  1.0,       // TexCoord 2
+                             1.0,  1.0, 0.0,  // Position 3
+                             1.0,  0.0        // TexCoord 3
+                          };
+    GLushort indices[] = { 0, 1, 2, 0, 2, 3 };
 
     glGenBuffers(1, &userData->vertexObject);
     glBindBuffer(GL_ARRAY_BUFFER, userData->vertexObject );
@@ -137,9 +87,9 @@ int Init ( ESContext *esContext )
     glBindBuffer ( GL_ELEMENT_ARRAY_BUFFER, userData->indexObject );
     glBufferData ( GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW );
 
-   glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
+    glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
 
-   return GL_TRUE;
+    return GL_TRUE;
 }
 
 
@@ -159,93 +109,52 @@ extern "C" int initGL(int width, int height)
   return 1;
 }
 
-///
-// Draw a triangle using the shader pair created in Init()
-//
-extern "C" void Draw ()
-{
-    // ESContext *esContext = &sESContext;
-    // UserData *userData = (UserData*) esContext->userData;
-    // GLfloat vVertices[] = {  0.0f,  0.5f, 0.0f, 
-    //                         -0.5f, -0.5f, 0.0f,
-    //                          0.5f, -0.5f, 0.0f };
- 
-    // // No clientside arrays, so do this in a webgl-friendly manner
-    // GLuint vertexPosObject;
-    // glGenBuffers(1, &vertexPosObject);
-    // glBindBuffer(GL_ARRAY_BUFFER, vertexPosObject);
-    // glBufferData(GL_ARRAY_BUFFER, 9*4, vVertices, GL_STATIC_DRAW);
-    
-    // // Set the viewport
-    // glViewport ( 0, 0, esContext->width, esContext->height );
-    
-    // // Clear the color buffer
-    // glClear ( GL_COLOR_BUFFER_BIT );
-
-    // // Use the program object
-    // glUseProgram ( userData->programObject );
-
-    // // Load the vertex data
-    // glBindBuffer(GL_ARRAY_BUFFER, vertexPosObject);
-    // glVertexAttribPointer(0 /* ? */, 3, GL_FLOAT, 0, 0, 0);
-    // glEnableVertexAttribArray(0);
- 
-    // glDrawArrays ( GL_TRIANGLES, 0, 3 );
-}
-
 GLuint CreateSimpleTexture2D( void const *array, int width, int height)
 {
-    printf("array %p %dx%d \n", array, width, height);
-   // Texture object handle
-   GLuint textureId;
+    // Texture object handle
+    GLuint textureId;
    
-   // // 2x2 Image, 3 bytes per pixel (R, G, B)
-   // GLubyte pixels[4 * 3] =
-   // {  
-   //    255,   0,   0, // Red
-   //      0, 255,   0, // Green
-   //      0,   0, 255, // Blue
-   //    255, 255,   0  // Yellow
-   // };
+    // Use tightly packed data
+    glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
 
-   // Use tightly packed data
-   glPixelStorei ( GL_UNPACK_ALIGNMENT, 1 );
+    // Generate a texture object
+    glGenTextures ( 1, &textureId );
 
-   // Generate a texture object
-   glGenTextures ( 1, &textureId );
+    // Bind the texture object
+    glBindTexture ( GL_TEXTURE_2D, textureId );
 
-   // Bind the texture object
-   glBindTexture ( GL_TEXTURE_2D, textureId );
+    // Load the texture
+    glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                   0, GL_RGBA, GL_UNSIGNED_BYTE, array );
 
-   // Load the texture
-   glTexImage2D ( GL_TEXTURE_2D, 0, GL_RGBA, width, height,
-                  0, GL_RGBA, GL_UNSIGNED_BYTE, array );
+    // Set the filtering mode
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-   // Set the filtering mode
-   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-   glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-   return textureId;
-
+    return textureId;
 }
 
-float statics[] = {0,0,0,0};
+float statistic[] = {0,0,0,0}; // openCV(cur, avg), cur, avg
+char buff[100];
+extern "C" const char* getPerfStatistic() {
+    sprintf(buff, "OpenCV=%f,%f, OpenGL=%f,%f", statistic[0], statistic[1], statistic[2], statistic[3]);
+    return buff;
+}
 
-extern "C" int DrawImage(void const *array, int width, int height) {
+extern "C" int EdgeDetection(void const *array, int width, int height) {
     clock_t c = clock();
 
-    Mat rgb565Mat(height, width, CV_8UC4, (unsigned char*)(array));
-    //Mat rgb565Mat(dstHeight, dstWidth, CV_8UC2, dstBits);
+    Mat srcImage(height, width, CV_8UC4, (unsigned char*)(array));
     Mat grayMat;
     Mat grad;
     int scale = 1;
     int delta = 0;
     int ddepth = CV_16S;
 
-    GaussianBlur( rgb565Mat, rgb565Mat, Size(3,3), 0, 0, BORDER_DEFAULT );
-    cvtColor( rgb565Mat, grayMat, CV_BGRA2GRAY);
+    GaussianBlur( srcImage, srcImage, Size(3,3), 0, 0, BORDER_DEFAULT );
+    cvtColor( srcImage, grayMat, CV_BGRA2GRAY);
 
     /// Generate grad_x and grad_y
     Mat grad_x, grad_y;
@@ -260,10 +169,10 @@ extern "C" int DrawImage(void const *array, int width, int height) {
     convertScaleAbs( grad_y, abs_grad_y );
     /// Total Gradient (approximate)
     addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
-    cvtColor( grad, rgb565Mat, CV_GRAY2BGRA );
+    cvtColor( grad, srcImage, CV_GRAY2BGRA );
 
-    statics[1] = ((float)(clock() - c)*1000.0f/CLOCKS_PER_SEC);
-    printf("edge detect %f ms\n", statics[1]);
+    statistic[0] = ((float)(clock() - c)*1000.0f/CLOCKS_PER_SEC);
+    statistic[1] = (statistic[0] + statistic[1]) / 2;
     c = clock();
 
     // Mat_<Vec2f> vertex(1, 4);
@@ -278,42 +187,45 @@ extern "C" int DrawImage(void const *array, int width, int height) {
     // Load the texture
     ESContext *esContext = &sESContext;
     UserData *userData = (UserData*) esContext->userData;
-   userData->textureId = CreateSimpleTexture2D (rgb565Mat.data, width, height);
+    userData->textureId = CreateSimpleTexture2D (srcImage.data, width, height);
 
-   // draw
-      // Set the viewport
-   glViewport ( 0, 0, width, height );
+    // draw
+    // Set the viewport
+    glViewport ( 0, 0, width, height );
    
-   // Clear the color buffer
-   glClear ( GL_COLOR_BUFFER_BIT );
+    // Clear the color buffer
+    glClear ( GL_COLOR_BUFFER_BIT );
 
-   // Use the program object
-   glUseProgram ( userData->programObject );
+    // Use the program object
+    glUseProgram ( userData->programObject );
 
-   // Load the vertex position
-   glBindBuffer (GL_ARRAY_BUFFER, userData->vertexObject );
-   glVertexAttribPointer ( userData->positionLoc, 3, GL_FLOAT,
-                           GL_FALSE, 5 * 4, 0 );
-   // Load the texture coordinate
-   glVertexAttribPointer ( userData->texCoordLoc, 2, GL_FLOAT,
-                           GL_FALSE, 5 * 4, 
-                           (const GLvoid *)(3 * 4) );
+    // Load the vertex position
+    glBindBuffer (GL_ARRAY_BUFFER, userData->vertexObject );
+    glVertexAttribPointer ( userData->positionLoc, 3, GL_FLOAT,
+                            GL_FALSE, 5 * 4, 0 );
+    // Load the texture coordinate
+    glVertexAttribPointer ( userData->texCoordLoc, 2, GL_FLOAT,
+                            GL_FALSE, 5 * 4, 
+                            (const GLvoid *)(3 * 4) );
 
-   glEnableVertexAttribArray ( userData->positionLoc );
-   glEnableVertexAttribArray ( userData->texCoordLoc );
+    glEnableVertexAttribArray ( userData->positionLoc );
+    glEnableVertexAttribArray ( userData->texCoordLoc );
 
-   // Bind the texture
-   glActiveTexture ( GL_TEXTURE0 );
-   glBindTexture ( GL_TEXTURE_2D, userData->textureId );
+    // Bind the texture
+    glActiveTexture ( GL_TEXTURE0 );
+    glBindTexture ( GL_TEXTURE_2D, userData->textureId );
 
-   // Set the sampler texture unit to 0
-   glUniform1i ( userData->samplerLoc, 0 );
+    // Set the sampler texture unit to 0
+    glUniform1i ( userData->samplerLoc, 0 );
 
-   glBindBuffer ( GL_ELEMENT_ARRAY_BUFFER, userData->indexObject );
-   glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0 );
+    glBindBuffer ( GL_ELEMENT_ARRAY_BUFFER, userData->indexObject );
+    glDrawElements ( GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0 );
 
-   statics[3] = ((float)(clock() - c)*1000.0f/CLOCKS_PER_SEC);
-   printf("drawGL %f ms\n", statics[3]);
+    statistic[2] = ((float)(clock() - c)*1000.0f/CLOCKS_PER_SEC);
+    statistic[3] = (statistic[2] + statistic[3]) / 2;
 
-   return 0;
+    return 0;
+}
+
+extern "C" void FaceBeautify(void const *array, int width, int height) {
 }

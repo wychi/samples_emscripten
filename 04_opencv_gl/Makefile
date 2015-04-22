@@ -28,7 +28,7 @@ js: main.bc
 	--closure 1 \
 	-s PRECISE_F32=1 \
 	-s ASM_JS=1 \
-	-s EXPORTED_FUNCTIONS="['_initGL', '_Draw', '_DrawImage']" \
+	-s EXPORTED_FUNCTIONS="['_initGL', '_getPerfStatistic', '_EdgeDetection', '_FaceBeautify']" \
 	-o $(OBJDIR)/out.js
 
 install:

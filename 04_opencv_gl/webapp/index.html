@@ -19,6 +19,8 @@
 <button onclick="start()">Start</button>
 <button onclick="stop()">stop</button>
 <canvas id="snapshot"></canvas>
+
+<div id="consoleDiv"></div>
 <canvas id="result"></canvas>
 
 <script>
@@ -43,11 +45,12 @@ function onRuntimeInitialized() {
 var TEST_IMAGE = '../../res/face.jpg';
 var TEST_VIDOE = '../../res/Mozilla_2011_Story.webm';
 
-var c_initGL, c_DrawImage;
+var c_initGL, c_getPerfStatistic, c_EdgeDetection, c_FaceBeautify;
 var playing = false;
 var _image;
 var _inputSrcType = 'image'; // video, webcam
 var _stream;
+var consoleDiv = document.getElementById('consoleDiv');
 
 function setInputSource(node) {
   _inputSrcType = node.value;
@@ -129,7 +132,9 @@ function start() {
 function init(width, height) {
   console.log('init ', width, height);
   c_initGL = Module.cwrap('initGL', 'number', ['number','number']);
-  c_DrawImage = Module.cwrap('DrawImage', 'number', ['number','number', 'number']);
+  c_getPerfStatistic = Module.cwrap('getPerfStatistic', 'string');
+  c_EdgeDetection = Module.cwrap('EdgeDetection', 'number', ['number','number', 'number']);
+  c_FaceBeautify = Module.cwrap('FaceBeautify', null, ['number','number', 'number']);
 
   c_initGL(width, height);
 
@@ -155,9 +160,14 @@ function render() {
   }
 
   process(image, width, height);
+
+  var statistic = c_getPerfStatistic();
+  consoleDiv.innerHTML = statistic;
 }
 
 function process(image, width, height) {
+  if(playing == false)
+    return;
   //console.log('process', width, height);
   //var canvas = document.createElement('canvas');
   var canvas = document.getElementById('snapshot');
@@ -172,7 +182,7 @@ function process(image, width, height) {
   var temp1 = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf, bufferSize);
   temp1.set(img.data, 0);
 
-  c_DrawImage(inputBuf, width, height);
+  c_EdgeDetection(inputBuf, width, height);
 
   // TODO free buffer
   Module._free(inputBuf);
