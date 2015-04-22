@@ -236,18 +236,34 @@ float statics[] = {0,0,0,0};
 extern "C" int DrawImage(void const *array, int width, int height) {
     clock_t c = clock();
 
-    Mat img(height, width, CV_8UC4, (unsigned char*)(array));
-    GaussianBlur(img, img, Size(7,7), 1.5, 1.5);
+    Mat rgb565Mat(height, width, CV_8UC4, (unsigned char*)(array));
+    //Mat rgb565Mat(dstHeight, dstWidth, CV_8UC2, dstBits);
+    Mat grayMat;
+    Mat grad;
+    int scale = 1;
+    int delta = 0;
+    int ddepth = CV_16S;
 
-    statics[0] = ((float)(clock() - c)*1000.0f/CLOCKS_PER_SEC);
-    printf("GaussianBlur() %f ms\n", statics[0] );
-    c = clock();
+    GaussianBlur( rgb565Mat, rgb565Mat, Size(3,3), 0, 0, BORDER_DEFAULT );
+    cvtColor( rgb565Mat, grayMat, CV_BGRA2GRAY);
 
-    cv::Point center( width/2, height/2 );
-    cv::ellipse( img, center, cv::Size( width/2, height/2 ), 0, 0, 360, cv::Scalar( 255, 0, 0 ), 5, 8, 0 );
+    /// Generate grad_x and grad_y
+    Mat grad_x, grad_y;
+    Mat abs_grad_x, abs_grad_y;
+    /// Gradient X
+    //Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
+    Sobel( grayMat, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT );
+    convertScaleAbs( grad_x, abs_grad_x );
+    /// Gradient Y
+    //Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
+    Sobel( grayMat, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT );
+    convertScaleAbs( grad_y, abs_grad_y );
+    /// Total Gradient (approximate)
+    addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
+    cvtColor( grad, rgb565Mat, CV_GRAY2BGRA );
 
     statics[1] = ((float)(clock() - c)*1000.0f/CLOCKS_PER_SEC);
-    printf("cv::ellipse() %f ms\n", statics[1]);
+    printf("edge detect %f ms\n", statics[1]);
     c = clock();
 
     // Mat_<Vec2f> vertex(1, 4);
@@ -262,7 +278,7 @@ extern "C" int DrawImage(void const *array, int width, int height) {
     // Load the texture
     ESContext *esContext = &sESContext;
     UserData *userData = (UserData*) esContext->userData;
-   userData->textureId = CreateSimpleTexture2D (img.data, width, height);
+   userData->textureId = CreateSimpleTexture2D (rgb565Mat.data, width, height);
 
    // draw
       // Set the viewport

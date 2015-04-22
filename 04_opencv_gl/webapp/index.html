@@ -12,6 +12,10 @@
 </head>
 
 <body>
+<input type="radio" name="mode" value="image" onclick="setInputSource(this)" checked> Use Image<br>
+<input type="radio" name="mode" value="video" onclick="setInputSource(this)" > Use Video<br>
+<input type="radio" name="mode" value="webcam" onclick="setInputSource(this)"> Use Camera <br>
+
 <button onclick="start()">Start</button>
 <button onclick="stop()">stop</button>
 <canvas id="snapshot"></canvas>
@@ -42,14 +46,35 @@ var TEST_VIDOE = '../../res/Mozilla_2011_Story.webm';
 var c_initGL, c_DrawImage;
 var playing = false;
 var _image;
+var _inputSrcType = 'image'; // video, webcam
+var _stream;
 
+function setInputSource(node) {
+  _inputSrcType = node.value;
+}
 function stop() {
   playing = false;
+
+  if(_inputSrcType == 'video') {
+    getImage().pause();
+  } else if(_inputSrcType == 'webcam') {
+    _stream.stop();
+  }
 }
 
 function start() {
   // TODO use radio button to choose
   playing = true;
+
+  if(_inputSrcType == 'image') {
+    useImage();
+  } else if(_inputSrcType == 'video') {
+    var video = useVideo();
+    video.src = TEST_VIDOE;
+  } else if(_inputSrcType == 'webcam') {
+    useCamera();
+  }
+
   function useImage() {
     var image = new Image();
     image.addEventListener('load', function() {
@@ -80,29 +105,24 @@ function start() {
     return video;
   }
 
-  try {
-    if(navigator.getUserMedia)
-      navigator.getUserMedia({video:true}, onGotStream, onFailedStream);
-    else {
-      console.log('useVideo');
-      var video = useVideo();
-      video.src = TEST_VIDOE;
+  function useCamera() {
+    try {
+      if(navigator.getUserMedia)
+        navigator.getUserMedia({video:true}, onGotStream, onFailedStream);
+    } catch (e) {
+      console.log("getUserMedia error " + e);
+      //trace_e(e, "getUserMedia error");
     }
-  } catch (e) {
-    console.log("getUserMedia error " + e);
-    //trace_e(e, "getUserMedia error");
-  }
 
-  function onGotStream(stream) {
-    var video = useVideo();
-    attachMediaStream(video,stream);
-  }
+    function onGotStream(stream) {
+      var video = useVideo();
+      attachMediaStream(video,stream);
+      _stream = stream;
+    }
 
-  function onFailedStream(error) {
-    console.log("Failed to get access to local media. Error code was " + error.code + ".");
-    //useImage();
-    var video = useVideo();
-    video.src = TEST_VIDOE;
+    function onFailedStream(error) {
+      console.log("Failed to get access to local media. Error code was " + error.code + ".");
+    }
   }
 }
 

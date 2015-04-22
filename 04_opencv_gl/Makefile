@@ -27,7 +27,6 @@ js: main.bc
 	--llvm-lto 1 \
 	--closure 1 \
 	-s PRECISE_F32=1 \
-	-s TOTAL_MEMORY=318767104 \
 	-s ASM_JS=1 \
 	-s EXPORTED_FUNCTIONS="['_initGL', '_Draw', '_DrawImage']" \
 	-o $(OBJDIR)/out.js
