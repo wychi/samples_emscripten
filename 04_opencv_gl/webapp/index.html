@@ -151,7 +151,7 @@ function getImage() {
 function render() {
   var image = getImage();
   var width = image.width;
-  var height = image.width;
+  var height = image.height;
   if( image.nodeName === 'VIDEO' && playing) {
     requestAnimationFrame( render );
 
