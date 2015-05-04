@@ -1,0 +1,269 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<script type="text/javascript" src="../../res/adapter.js"></script>
+<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="//code.jquery.com/jquery-1.10.2.js"></script>
+<script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+
+<style>
+  #snapshot {
+    display: none;
+  }
+  #slider > span {
+    height:120px; float:left; margin:15px
+  }
+</style>
+
+<script>
+window.params = {
+  'l1': 200,
+  'l2': 140,
+  'l3': 90,
+  'u1': 255,
+  'u2': 210,
+  'u3': 180,
+};
+
+  $(function() {
+    // setup graphic EQ
+    $( "#slider > span" ).each(function() {
+      // read initial values from markup and remove that
+      var value = parseInt( $( this ).text(), 10 );
+      $( this ).empty().slider({
+        value: value,
+        range: "min",
+        min: 0,
+        max: 255,
+        animate: true,
+        orientation: "vertical",
+        change: function( event, ui ) {
+          window.params[this.id] = ui.value;
+          render();
+        }
+      });
+    });
+  });
+ </script>
+
+</head>
+
+<body>
+<input type="radio" name="mode" value="image" onclick="setInputSource(this)" checked> Use Image<br>
+<input type="radio" name="mode" value="video" onclick="setInputSource(this)" > Use Video<br>
+<input type="radio" name="mode" value="webcam" onclick="setInputSource(this)"> Use Camera <br>
+
+<div id="slider">
+  <span id="l1">200</span>
+  <span id="l2">140</span>
+  <span id="l3">90</span>
+  <span id="u1">255</span>
+  <span id="u2">210</span>
+  <span id="u3">180</span>
+</div>
+
+<button onclick="start()">Start</button>
+<button onclick="stop()">stop</button>
+<canvas id="snapshot"></canvas>
+
+<div id="consoleDiv"></div>
+<img id="localImage">
+<img id="localImageSampling">
+<canvas id="result"></canvas>
+
+<script>
+// This global variable, Module, is needed.
+// Since complied javascript might be minified.
+Module = {};
+Module['onRuntimeInitialized'] = onRuntimeInitialized;
+
+//show Emscripten environment where the canvas is
+var canvas2 = document.getElementById('result');
+Module.canvas = canvas2;
+canvas2.addEventListener("webglcontextlost", function(e) {
+  alert('WebGL context lost. You will need to reload the page.');
+  e.preventDefault();
+}, false);
+
+function onRuntimeInitialized() {
+  console.log('onRuntimeInitialized');
+  // TODO: enable the buttons
+}
+
+var TEST_IMAGE = '../../res/face.jpg';
+var TEST_VIDOE = '../../res/Mozilla_2011_Story.webm';
+
+var _localImage = document.getElementById('localImage');
+_localImage.src = TEST_IMAGE;
+
+var _localImageSampling = document.getElementById('localImageSampling');
+_localImageSampling.src = '../../res/samples64_quad.png';
+
+var c_initGL, c_getPerfStatistic, c_EdgeDetection, c_FaceBeautify, c_SkinSegmentation;
+var playing = false;
+var _image;
+var _inputSrcType = 'image'; // video, webcam
+var _stream;
+var consoleDiv = document.getElementById('consoleDiv');
+
+function setInputSource(node) {
+  _inputSrcType = node.value;
+}
+function stop() {
+  playing = false;
+
+  if(_inputSrcType == 'video') {
+    getImage().pause();
+  } else if(_inputSrcType == 'webcam') {
+    _stream.stop();
+  }
+}
+
+function start() {
+  // TODO use radio button to choose
+  playing = true;
+
+  if(_inputSrcType == 'image') {
+    useImage();
+  } else if(_inputSrcType == 'video') {
+    var video = useVideo();
+    video.src = TEST_VIDOE;
+  } else if(_inputSrcType == 'webcam') {
+    useCamera();
+  }
+
+  function useImage() {
+    var image = new Image();
+    image.addEventListener('load', function() {
+      console.log('image loaded');
+      console.log('width, height', image.width, image.height);
+      console.log('real width, height', image.naturalWidth, image.naturalHeight);
+
+      init(image.width, image.height);
+    });
+    image.src = TEST_IMAGE;
+    _image = image;    
+  }
+
+  function useVideo() {
+    var video = document.createElement('video');
+    video.autoplay = 1;
+    video.addEventListener("playing", function() {
+      console.log('video playing');
+      console.log(video.videoWidth, video.videoHeight);
+      var width = video.videoWidth;
+      var height = video.videoHeight;
+
+      init(width, height);
+    }, true);
+
+    _image = video;
+
+    return video;
+  }
+
+  function useCamera() {
+    try {
+      if(navigator.getUserMedia)
+        navigator.getUserMedia({video:true}, onGotStream, onFailedStream);
+    } catch (e) {
+      console.log("getUserMedia error " + e);
+      //trace_e(e, "getUserMedia error");
+    }
+
+    function onGotStream(stream) {
+      var video = useVideo();
+      attachMediaStream(video,stream);
+      _stream = stream;
+    }
+
+    function onFailedStream(error) {
+      console.log("Failed to get access to local media. Error code was " + error.code + ".");
+    }
+  }
+}
+
+function init(width, height) {
+  console.log('init ', width, height);
+  c_initGL = Module.cwrap('initGL', 'number', ['number','number']);
+  c_getPerfStatistic = Module.cwrap('getPerfStatistic', 'string');
+  c_EdgeDetection = Module.cwrap('EdgeDetection', 'number', ['number','number', 'number']);
+  c_FaceBeautify = Module.cwrap('FaceBeautify', null, ['number','number', 'number']);
+  c_SkinSegmentation = Module.cwrap('SkinSegmentation', null, ['number','number', 'number']);
+  
+
+  c_initGL(width, height);
+
+  Module['canvas'].width = width;
+  Module['canvas'].height = height;
+
+  render();
+}
+
+function getImage() {
+  return _image;
+}
+
+function render() {
+  var image = getImage();
+  var width = image.width;
+  var height = image.height;
+  if( image.nodeName === 'VIDEO') {
+    width = image.videoWidth;
+    height = image.videoHeight;
+  }
+  if(playing)
+    requestAnimationFrame( render );
+
+  process(image, width, height);
+
+  var statistic = c_getPerfStatistic();
+  consoleDiv.innerHTML = statistic;
+}
+
+function process(image, width, height, params) {
+  if(playing == false)
+    return;
+  //console.log('process', width, height);
+  var canvasS = document.createElement('canvas');
+  canvasS.width = 64;
+  canvasS.height = 64;
+  var ctxS = canvasS.getContext('2d');
+  ctxS.drawImage(_localImageSampling, 0, 0, 64, 64);
+  var img2 = ctxS.getImageData(0, 0, 64, 64);
+  var bufferSize2 = 64*64*4;
+  var inputBuf2 = Module._malloc(bufferSize2);
+  var temp2 = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf2, bufferSize2);
+  temp2.set(img2.data, 0);
+
+  var canvas = document.getElementById('snapshot');
+  canvas.width = width;
+  canvas.height = height;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0, width, height);
+
+  var img = ctx.getImageData(0, 0, width, height);
+  var bufferSize = width*height*4;
+  var inputBuf = Module._malloc(bufferSize);
+  var temp1 = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf, bufferSize);
+  temp1.set(img.data, 0);
+
+  //c_EdgeDetection(inputBuf, width, height);
+  //c_FaceBeautify(inputBuf, width, height);
+  //c_SkinSegmentation(inputBuf, width, height, inputBuf2, 20);
+
+  var c_inRange = Module.cwrap('inRange', null, ['number','number', 'number', 'number','number', 'number', 'number','number', 'number', 'number']);
+  var type = 1;
+  var params = window.params;
+  c_inRange(inputBuf, width, height, type, params.l1, params.l2, params.l3, params.u1, params.u2, params.u3);
+
+  // TODO free buffer
+  Module._free(inputBuf);
+  Module._free(inputBuf2);
+}
+</script>
+<script async src="./out.js"></script>
+
+</body>
+</html>
