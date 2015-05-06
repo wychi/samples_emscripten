@@ -8,7 +8,7 @@
 <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 
 <style>
-  #snapshot {
+  #snapshot1 {
     display: none;
   }
   #slider > span {
@@ -18,12 +18,12 @@
 
 <script>
 window.params = {
-  'l1': 200,
-  'l2': 140,
-  'l3': 90,
-  'u1': 255,
-  'u2': 210,
-  'u3': 180,
+  'l1': 110,
+  'l2': 70,
+  'l3': 50,
+  'u1': 220,
+  'u2': 130,
+  'u3': 120,
 };
 
   $(function() {
@@ -55,12 +55,12 @@ window.params = {
 <input type="radio" name="mode" value="webcam" onclick="setInputSource(this)"> Use Camera <br>
 
 <div id="slider">
-  <span id="l1">200</span>
-  <span id="l2">140</span>
-  <span id="l3">90</span>
-  <span id="u1">255</span>
-  <span id="u2">210</span>
-  <span id="u3">180</span>
+  <span id="l1">110</span>
+  <span id="l2">70</span>
+  <span id="l3">50</span>
+  <span id="u1">220</span>
+  <span id="u2">130</span>
+  <span id="u3">120</span>
 </div>
 
 <button onclick="start()">Start</button>
@@ -91,7 +91,8 @@ function onRuntimeInitialized() {
   // TODO: enable the buttons
 }
 
-var TEST_IMAGE = '../../res/face.jpg';
+//var TEST_IMAGE = '../../res/face.jpg';
+var TEST_IMAGE = '../../res/IMG_0206.jpg';
 var TEST_VIDOE = '../../res/Mozilla_2011_Story.webm';
 
 var _localImage = document.getElementById('localImage');
@@ -193,8 +194,11 @@ function init(width, height) {
   c_SkinSegmentation = Module.cwrap('SkinSegmentation', null, ['number','number', 'number']);
   
 
-  c_initGL(width, height);
+  //c_initGL(width, height);
 
+  var canvas = document.getElementById('snapshot');
+  canvas.width = width;
+  canvas.height = height;
   Module['canvas'].width = width;
   Module['canvas'].height = height;
 
@@ -213,8 +217,8 @@ function render() {
     width = image.videoWidth;
     height = image.videoHeight;
   }
-  if(playing)
-    requestAnimationFrame( render );
+  // if(playing)
+  //   requestAnimationFrame( render );
 
   process(image, width, height);
 
@@ -225,21 +229,19 @@ function render() {
 function process(image, width, height, params) {
   if(playing == false)
     return;
-  //console.log('process', width, height);
-  var canvasS = document.createElement('canvas');
-  canvasS.width = 64;
-  canvasS.height = 64;
-  var ctxS = canvasS.getContext('2d');
-  ctxS.drawImage(_localImageSampling, 0, 0, 64, 64);
-  var img2 = ctxS.getImageData(0, 0, 64, 64);
-  var bufferSize2 = 64*64*4;
-  var inputBuf2 = Module._malloc(bufferSize2);
-  var temp2 = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf2, bufferSize2);
-  temp2.set(img2.data, 0);
+  console.log('process', width, height);
+  // var canvasS = document.createElement('canvas');
+  // canvasS.width = 64;
+  // canvasS.height = 64;
+  // var ctxS = canvasS.getContext('2d');
+  // ctxS.drawImage(_localImageSampling, 0, 0, 64, 64);
+  // var img2 = ctxS.getImageData(0, 0, 64, 64);
+  // var bufferSize2 = 64*64*4;
+  // var inputBuf2 = Module._malloc(bufferSize2);
+  // var temp2 = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf2, bufferSize2);
+  // temp2.set(img2.data, 0);
 
   var canvas = document.getElementById('snapshot');
-  canvas.width = width;
-  canvas.height = height;
   var ctx = canvas.getContext('2d');
   ctx.drawImage(image, 0, 0, width, height);
 
@@ -250,17 +252,25 @@ function process(image, width, height, params) {
   temp1.set(img.data, 0);
 
   //c_EdgeDetection(inputBuf, width, height);
-  //c_FaceBeautify(inputBuf, width, height);
+  c_FaceBeautify(inputBuf, width, height);
   //c_SkinSegmentation(inputBuf, width, height, inputBuf2, 20);
 
-  var c_inRange = Module.cwrap('inRange', null, ['number','number', 'number', 'number','number', 'number', 'number','number', 'number', 'number']);
-  var type = 1;
-  var params = window.params;
-  c_inRange(inputBuf, width, height, type, params.l1, params.l2, params.l3, params.u1, params.u2, params.u3);
+  // var c_inRange = Module.cwrap('inRange', null, ['number','number', 'number', 'number','number', 'number', 'number','number', 'number', 'number']);
+  // var type = 1;
+  // var params = window.params;
+  // c_inRange(inputBuf, width, height, type, params.l1, params.l2, params.l3, params.u1, params.u2, params.u3);
 
-  // TODO free buffer
+  //var canvas2 = document.getElementById('result');
+  //var ctx2 = canvas2.getContext('2d');
+  var resultImageData = new ImageData(temp1, width, height);
+  //ctx2.putImageData(resultImageData, 0, 0);
+  ctx.putImageData(resultImageData, 0, 0);
+
   Module._free(inputBuf);
-  Module._free(inputBuf2);
+
+  var dataURL = canvas.toDataURL('image/jpeg');
+  console.log(dataURL);
+  //Module._free(inputBuf2);
 }
 </script>
 <script async src="./out.js"></script>

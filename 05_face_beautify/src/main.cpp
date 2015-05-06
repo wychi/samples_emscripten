@@ -64,7 +64,7 @@ int Init ( ESContext *esContext )
       "   vUv = a_texCoord;  \n"
       "}                            \n";
    
-    GLbyte fShaderStr0[] =  
+    GLbyte fShaderStr[] =  
       "precision mediump float;                            \n"
       "varying vec2 vUv;                            \n"
       "uniform sampler2D s_texture;                        \n"
@@ -73,7 +73,7 @@ int Init ( ESContext *esContext )
       "  gl_FragColor = texture2D( s_texture, vUv );\n"
       "}                                                   \n";
 
-    GLbyte fShaderStr[] =  
+    GLbyte fShaderStr1[] =  
       "precision mediump float;                            \n"
       "varying vec2 vUv;                            \n"
       "uniform sampler2D s_texture;                        \n"
@@ -306,24 +306,40 @@ extern "C" int EdgeDetection(void const *array, int width, int height) {
 }
 
 extern "C" void FaceBeautify(void const *array, int width, int height) {
-    int MAX_KERNEL_LENGTH = 31;
 
     clock_t c = clock();
 
     Mat orgImage(height, width, CV_8UC4, (unsigned char*)(array));
     Mat srcImage;
     cvtColor(orgImage,srcImage, CV_BGRA2BGR);
-    Mat dstImage = srcImage.clone();
-    for ( int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2 ) {
-        bilateralFilter ( srcImage, dstImage, i, i*2, i/2 );
-    }
-    Mat dstImage2;
-    cvtColor(dstImage,dstImage2, CV_BGR2BGRA);
+    //cv::cvtColor(bgr, cvt, CV_BGR2HSV);
+
+    // apply blur to whole image
+    Mat refinedImage = srcImage.clone();
+    // int MAX_KERNEL_LENGTH = 31;
+    // for ( int i = 1; i < MAX_KERNEL_LENGTH; i = i + 2 ) {
+    //     bilateralFilter ( srcImage, refinedImage, i, i*2, i/2 );
+    // }
+    GaussianBlur( refinedImage, refinedImage, Size(17,17), 0, 0, BORDER_DEFAULT );
+
+    // get skin color map
+    Scalar lBound(110, 0, 0);
+    Scalar uBound(255, 95, 120);
+    Mat skinMap;
+    inRange(srcImage, lBound, uBound, skinMap);
+
+    // merge
+    Mat resultImage = srcImage.clone();
+    refinedImage.copyTo(resultImage, skinMap);
+    //bitwise_and(srcImage, refinedImage, resultImage, skinMap); 
+    
+    Mat dstImage;
+    cvtColor(resultImage, orgImage, CV_BGR2BGRA);
     
     statistic[0] = ((float)(clock() - c)*1000.0f/CLOCKS_PER_SEC);
     statistic[1] = (statistic[0] + statistic[1]) / 2;
-
-    drawGL(dstImage2, width, height);
+    
+    //drawGL(dstImage, width, height);
 }
 
 int findBiggestContour(vector<vector<Point> > contours){
