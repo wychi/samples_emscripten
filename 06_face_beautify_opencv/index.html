@@ -1,0 +1,268 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="//code.jquery.com/jquery-1.10.2.js"></script>
+<script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+
+<style>
+  #snapshot1 {
+    display: none;
+  }
+  #slider > span {
+    height:120px; float:left; margin:15px
+  }
+</style>
+
+<script>
+window.params = {
+  'l1': 110,
+  'l2': 70,
+  'l3': 50,
+  'u1': 220,
+  'u2': 130,
+  'u3': 120,
+};
+
+  $(function() {
+    // setup graphic EQ
+    $( "#slider > span" ).each(function() {
+      // read initial values from markup and remove that
+      var value = parseInt( $( this ).text(), 10 );
+      $( this ).empty().slider({
+        value: value,
+        range: "min",
+        min: 0,
+        max: 255,
+        animate: true,
+        orientation: "vertical",
+        change: function( event, ui ) {
+          window.params[this.id] = ui.value;
+          render();
+        }
+      });
+    });
+  });
+ </script>
+
+</head>
+
+<body>
+<input type="radio" name="mode" value="image" onclick="setInputSource(this)" checked> Use Image<br>
+<input type="radio" name="mode" value="video" onclick="setInputSource(this)" > Use Video<br>
+<input type="radio" name="mode" value="webcam" onclick="setInputSource(this)"> Use Camera <br>
+
+<div id="slider">
+  <span id="l1">110</span>
+  <span id="l2">70</span>
+  <span id="l3">50</span>
+  <span id="u1">220</span>
+  <span id="u2">130</span>
+  <span id="u3">120</span>
+</div>
+
+<button onclick="start()">Start</button>
+<button onclick="stop()">stop</button>
+<h3>snapshot</h3>
+<canvas id="snapshot"></canvas>
+
+<div id="consoleDiv"></div>
+<h3>image</h3>
+<img id="localImage">
+<h3>result</h3>
+<canvas id="result"></canvas>
+
+<script>
+// This global variable, Module, is needed.
+// Since complied javascript might be minified.
+Module = {};
+Module['onRuntimeInitialized'] = onRuntimeInitialized;
+
+function onRuntimeInitialized() {
+  console.log('onRuntimeInitialized');
+  // TODO: enable the buttons
+}
+
+//var TEST_IMAGE = '../../res/face.jpg';
+var TEST_IMAGE = '../res/IMG_0206.jpg';
+
+var _localImage = document.getElementById('localImage');
+_localImage.src = TEST_IMAGE;
+
+var playing = false;
+var _image;
+var _inputSrcType = 'image'; // video, webcam
+var _stream;
+var consoleDiv = document.getElementById('consoleDiv');
+
+function setInputSource(node) {
+  _inputSrcType = node.value;
+}
+function stop() {
+  playing = false;
+
+  if(_inputSrcType == 'video') {
+    getImage().pause();
+  } else if(_inputSrcType == 'webcam') {
+    _stream.stop();
+  }
+}
+
+function start() {
+  // TODO use radio button to choose
+  playing = true;
+
+  if(_inputSrcType == 'image') {
+    useImage();
+  } else if(_inputSrcType == 'video') {
+    var video = useVideo();
+    video.src = TEST_VIDOE;
+  } else if(_inputSrcType == 'webcam') {
+    useCamera();
+  }
+
+  function useImage() {
+    var image = new Image();
+    image.addEventListener('load', function() {
+      console.log('image loaded');
+      console.log('width, height', image.width, image.height);
+      console.log('real width, height', image.naturalWidth, image.naturalHeight);
+
+      init(image.width, image.height);
+    });
+    image.src = TEST_IMAGE;
+    _image = image;    
+  }
+
+  function useVideo() {
+    var video = document.createElement('video');
+    video.autoplay = 1;
+    video.addEventListener("playing", function() {
+      console.log('video playing');
+      console.log(video.videoWidth, video.videoHeight);
+      var width = video.videoWidth;
+      var height = video.videoHeight;
+
+      init(width, height);
+    }, true);
+
+    _image = video;
+
+    return video;
+  }
+
+  function useCamera() {
+    try {
+      if(navigator.getUserMedia)
+        navigator.getUserMedia({video:true}, onGotStream, onFailedStream);
+    } catch (e) {
+      console.log("getUserMedia error " + e);
+      //trace_e(e, "getUserMedia error");
+    }
+
+    function onGotStream(stream) {
+      var video = useVideo();
+      attachMediaStream(video,stream);
+      _stream = stream;
+    }
+
+    function onFailedStream(error) {
+      console.log("Failed to get access to local media. Error code was " + error.code + ".");
+    }
+  }
+}
+
+function init(width, height) {
+  console.log('init ', width, height);
+
+  var canvas = document.getElementById('result');
+  canvas.width = width;
+  canvas.height = height;
+
+  render();
+}
+
+function getImage() {
+  return _image;
+}
+
+function render() {
+  var image = getImage();
+  var width = image.width;
+  var height = image.height;
+  if( image.nodeName === 'VIDEO') {
+    width = image.videoWidth;
+    height = image.videoHeight;
+  }
+  // if(playing)
+  //   requestAnimationFrame( render );
+
+  process(image, width, height);
+}
+
+function facebeautify(srcImage) {
+  
+  var srcBGR = new Module.Mat();
+  Module.cvtColor(srcImage, srcBGR, Module.CV_BGRA2BGR, 0);
+
+  var bluredImage = new Module.Mat();
+  Module.GaussianBlur(srcBGR, bluredImage, [3, 3], 0, 0, Module.BORDER_DEFAULT);
+
+  var lowerBound = new Module.Mat(1, 3, Module.CV_8UC1);
+  var viewLowerBound = Module.HEAPU8.subarray(lowerBound.data);
+  viewLowerBound[0] = 110;
+  viewLowerBound[1] = 70;
+  viewLowerBound[2] = 50;
+
+  var upperBound = new Module.Mat(1, 3, Module.CV_8UC1);
+  var viewUpperBound = Module.HEAPU8.subarray(upperBound.data);
+  viewUpperBound[0] = 220;
+  viewUpperBound[1] = 130;
+  viewUpperBound[2] = 120;
+
+  var mask = new Module.Mat();
+  Module.inRange(srcBGR, lowerBound, upperBound, mask);
+  //Module.cvtColor(mask, mask, Module.CV_GRAY2BGR, 0);
+  //Module.cvtColor(mask, srcImage, Module.CV_BGR2BGRA, 0);
+
+  bluredImage.copyTo(srcBGR, mask);
+  Module.cvtColor(srcBGR, srcImage, Module.CV_BGR2BGRA, 0);
+
+  srcBGR.delete();
+  mask.delete();
+  bluredImage.delete();
+}
+function process(image, width, height, params) {
+  if(playing == false)
+    return;
+  console.log('process', width, height);
+
+  var canvas = document.getElementById('result');
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0, width, height);
+  var imageData = ctx.getImageData(0, 0, width, height);
+
+  var srcImage = new Module.Mat(width, height, Module.CV_8UC4);
+  var bufferSize = width*height*4;
+  var inputBuf = srcImage.data;
+  var rawBuffer = new Uint8ClampedArray(Module.HEAPU8.buffer, inputBuf, bufferSize);
+  rawBuffer.set(imageData.data, 0);
+
+  facebeautify(srcImage);
+
+  var canvas2 = document.getElementById('snapshot');
+  canvas2.width = width;
+  canvas2.height = height;
+  var ctx2 = canvas2.getContext('2d');
+  var resultImageData = new ImageData(rawBuffer, width, height);
+  ctx2.putImageData(resultImageData, 0, 0);
+
+  srcImage.delete();
+  // Module._free(inputBuf);
+}
+</script>
+<script async src="./opencv.js"></script>
+
+</body>
+</html>
